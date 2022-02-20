@@ -1,0 +1,433 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation root template | Nested Stacks"
+
+# Parameter definition
+Parameters:
+  EnvironmentType:
+    Description: "Select environment type: Productive or Non-Productive"
+    Type: String
+    AllowedValues:
+      - non-prod
+      - prod
+
+  EnvironmentName:
+    Description: "Insert environment name. Example: dev"
+    Type: String
+
+  PrivateDomainName:
+    Description: "Insert private domain name. Example: kloudpepper.com"
+    Type: String
+
+  VpcCIDR:
+    Description: "Insert VPC CIDR"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  PrivateSubnet1CIDR:
+    Description: "Insert private subnet CIDR of zone A"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  PrivateSubnet2CIDR:
+    Description: "Insert private subnet CIDR of zone B"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  PrivateSubnet3CIDR:
+    Description: "Insert private subnet CIDR of zone C (In case you select productive environments)"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  DBPrivateSubnet1CIDR:
+    Description: "Insert DB private subnet CIDR of zone A"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  DBPrivateSubnet2CIDR:
+    Description: "Insert DB private subnet CIDR of zone B"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  DBPrivateSubnet3CIDR:
+    Description: "Insert DB private subnet CIDR of zone C (In case you select productive environments)"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  CreateTransitGateway:
+    Description: "Do you want to create a new Transit Gateway? In case of false, insert your Transit Gateway ID in the following option"
+    Type: String
+    Default: TRUE
+    AllowedValues:
+      - TRUE
+      - FALSE
+
+  OtherTransitGatewayID:
+    Description: "Insert your Transit Gateway ID. If you have selected to create a new Transit Gateway, leave this parameter empty"
+    Type: String
+
+  CreateALBCertificate:
+    Description: "Do you want to create a private certificate? In case of false, insert the ARN of your certificate previously uploaded to ACM"
+    Type: String
+    Default: TRUE
+    AllowedValues:
+      - TRUE
+      - FALSE
+
+  OtherARNCertificate:
+    Description: "Insert the ARN of your security certificate"
+    Type: String
+
+  MQUser:
+    NoEcho: false
+    Description: "Insert MQ username"
+    Type: String
+
+  MQPassword:
+    NoEcho: true
+    Description: "Insert the password of the MQ user. Must be more than 12 characters"
+    Type: String
+
+  CreateNewAuroraDB:
+    Description: "Do you want to create a new database? In case of false, insert the ARN of your snapshot stored in RDS"
+    Type: String
+    Default: TRUE
+    AllowedValues:
+      - TRUE
+      - FALSE
+
+  DBSnapshotARN:
+    Description: Optional. DB Snapshot ID to restore database. Leave this blank if you are not restoring from a snapshot.
+    Type: String
+    Default: ""
+
+  DBUser:
+    NoEcho: false
+    Description: "Insert the username that is used to connect to the database"
+    Type: String
+  
+  DBPassword:
+    NoEcho: true
+    Description: "Insert the password of the user that is used for the connection to the database"
+    Type: String
+
+  CreatePrivateDomain:
+    Description: "Do you want to create a private domain? In case of false, insert the ID of your private domain"
+    Type: String
+    Default: TRUE
+    AllowedValues:
+      - TRUE
+      - FALSE
+
+  OtherHostedZoneIdRoute53:
+    Description: "Insert Hosted Zone ID"
+    Type: String
+
+  DesiredCount:
+    Description: "Insert the number of desired tasks to be executed in each service"
+    Type: Number
+    Default: 1
+
+  ImageUrlApp1:
+    Description: "Insert the url of the App1 container image"
+    Type: String
+  
+  ImageUrlApp2:
+    Description: "Insert the url of the App2 container image"
+    Type: String
+
+
+Mappings: 
+  ActiveMQ:
+    InstanceTypes:
+      prod: "mq.m5.2xlarge"    # 8 vCPUs + 32 GB
+      non-prod: "mq.m5.large"  # 2 vCPUs + 8 GB
+  Aurora:
+    InstanceTypes:
+      prod: "db.r5.2xlarge"    # 8 vCPUs + 64 GB
+      non-prod: "db.r5.large"  # 2 vCPUs + 16 GB
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - 
+        Label: 
+          default: "ENVIRONMENT PARAMETERS"
+        Parameters:
+          - EnvironmentType
+          - EnvironmentName
+          - PrivateDomainName
+      - 
+        Label:
+          default: "NETWORK PARAMETERS"
+        Parameters:
+          - VpcCIDR
+          - PrivateSubnet1CIDR
+          - PrivateSubnet2CIDR
+          - PrivateSubnet3CIDR
+          - DBPrivateSubnet1CIDR
+          - DBPrivateSubnet2CIDR
+          - DBPrivateSubnet3CIDR
+          - CreateTransitGateway
+          - OtherTransitGatewayID
+      - 
+        Label: 
+          default: "ROUTE53 PARAMETERS"
+        Parameters:
+          - CreatePrivateDomain
+          - OtherHostedZoneIdRoute53
+      -
+        Label: 
+          default: "ALB PARAMETERS"
+        Parameters:
+          - CreateALBCertificate
+          - OtherARNCertificate
+      -
+        Label: 
+          default: "MQ PARAMETERS"
+        Parameters:
+          - MQUser
+          - MQPassword
+      -
+        Label: 
+          default: "AURORA DB PARAMETERS"
+        Parameters:
+          - CreateNewAuroraDB
+          - DBSnapshotARN
+          - DBUser
+          - DBPassword
+      -
+        Label: 
+          default: "ECS PARAMETERS"
+        Parameters:
+          - DesiredCount
+          - ImageUrlApp1
+          - ImageUrlApp2
+
+
+# Nested Stacks
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-VPC.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        VpcCIDR: !Ref VpcCIDR
+        PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
+        PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
+        PrivateSubnet3CIDR: !Ref PrivateSubnet3CIDR
+        CreateTransitGateway: !Ref CreateTransitGateway
+        OtherTransitGatewayID: !Ref OtherTransitGatewayID
+
+  NACLStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VPCStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-NACL.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        VpcID: !GetAtt VPCStack.Outputs.VPC
+        VpcCIDR: !Ref VpcCIDR
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        DBPrivateSubnet1: !GetAtt VPCStack.Outputs.DBPrivateSubnet1
+        DBPrivateSubnet2: !GetAtt VPCStack.Outputs.DBPrivateSubnet2
+        DBPrivateSubnet3: !GetAtt VPCStack.Outputs.DBPrivateSubnet3
+
+  SGStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NACLStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-SG.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        VpcID: !GetAtt VPCStack.Outputs.VPC
+        VpcCIDR: !Ref VpcCIDR
+
+  VPCEndpointStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-VPCEndpoints.yml
+      TimeoutInMinutes: 30
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        VpcID: !GetAtt VPCStack.Outputs.VPC
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        VPCEnpointSecurityGroup: !GetAtt SGStack.Outputs.VPCEnpointSecurityGroup
+        PrivateRouteTable: !GetAtt VPCStack.Outputs.PrivateRouteTable
+
+  S3Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-S3.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+
+  EFSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-EFS.yml
+      TimeoutInMinutes: 10
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        EFSSecurityGroup: !GetAtt SGStack.Outputs.EFSSecurityGroup
+
+  ALBStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-ALB.yml
+      TimeoutInMinutes: 10
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        PrivateDomainName: !Ref PrivateDomainName
+        VpcID: !GetAtt VPCStack.Outputs.VPC
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        ALBSecurityGroup: !GetAtt SGStack.Outputs.ALBSecurityGroup
+        CreateALBCertificate: !Ref CreateALBCertificate
+        OtherARNCertificate: !Ref OtherARNCertificate
+
+  MQStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+      - VPCEndpointStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-MQ-Apache.yml
+      TimeoutInMinutes: 30
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        MQSecurityGroup: !GetAtt SGStack.Outputs.MQSecurityGroup
+        MQType: !FindInMap [ActiveMQ, InstanceTypes, !Ref EnvironmentType]
+        MQUser: !Ref MQUser
+        MQPassword: !Ref MQPassword
+
+  RDSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+      - VPCEndpointStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-RDS-Aurora.yml
+      TimeoutInMinutes: 120
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        DBPrivateSubnet1: !GetAtt VPCStack.Outputs.DBPrivateSubnet1
+        DBPrivateSubnet2: !GetAtt VPCStack.Outputs.DBPrivateSubnet2
+        DBPrivateSubnet3: !GetAtt VPCStack.Outputs.DBPrivateSubnet3
+        DBSecurityGroup: !GetAtt SGStack.Outputs.DBSecurityGroup
+        DBType: !FindInMap [Aurora, InstanceTypes, !Ref EnvironmentType]
+        CreateNewAuroraDB: !Ref CreateNewAuroraDB
+        DBSnapshotARN: !Ref DBSnapshotARN
+
+  Route53Stack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - ALBStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-Route53.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        PrivateDomainName: !Ref PrivateDomainName
+        VpcID: !GetAtt VPCStack.Outputs.VPC
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        Route53SecurityGroup: !GetAtt SGStack.Outputs.Route53SecurityGroup
+        AlbCanonicalHostedZoneID: !GetAtt ALBStack.Outputs.AlbCanonicalHostedZoneID
+        AlbDNSName: !GetAtt ALBStack.Outputs.AlbDNSName
+        RDSEnpointAddr: !GetAtt RDSStack.Outputs.RDSEnpointAddr
+        RDSReaderEnpointAddr: !GetAtt RDSStack.Outputs.RDSReaderEnpointAddr
+        CreatePrivateDomain: !Ref CreatePrivateDomain
+        OtherHostedZoneIdRoute53: !Ref OtherHostedZoneIdRoute53
+
+  ECSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+      - EFSStack
+      - ALBStack
+      - MQStack
+      - RDSStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-ECS-Fargate.yml
+      TimeoutInMinutes: 30
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        PrivateDomainName: !Ref PrivateDomainName
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
+        ECSSecurityGroup: !GetAtt SGStack.Outputs.ECSSecurityGroup
+        DesiredCount: !Ref DesiredCount
+        ImageUrlApp1: !Ref ImageUrlApp1
+        ImageUrlApp2: !Ref ImageUrlApp2
+        MQUser: !Ref MQUser
+        MQPassword: !Ref MQPassword
+        MQEnpointAddr: !GetAtt MQStack.Outputs.MQEnpointAddr
+        DBUser: !Ref DBUser
+        DBPassword: !Ref DBPassword
+        RDSEnpointPort: !GetAtt RDSStack.Outputs.RDSEnpointPort
+        TargetGroupAPP1: !GetAtt ALBStack.Outputs.TargetGroupAPP1
+        TargetGroupAPP2: !GetAtt ALBStack.Outputs.TargetGroupAPP2
+        FileSystemId: !GetAtt EFSStack.Outputs.FileSystemId
+        AccessPointIdDataApp1: !GetAtt EFSStack.Outputs.AccessPointIdDataApp1
+        AccessPointIdDataApp2: !GetAtt EFSStack.Outputs.AccessPointIdDataApp2

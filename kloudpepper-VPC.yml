@@ -1,0 +1,366 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create a VPC, subnets, and route table"
+
+Parameters:
+  EnvironmentType:
+    Type: String
+
+  EnvironmentName:
+    Type: String
+
+  VpcCIDR:
+    Type: String
+    Default: "192.168.0.0/16"
+
+  PrivateSubnet1CIDR:
+    Type: String
+    Default: "192.168.10.0/24"
+
+  PrivateSubnet2CIDR:
+    Type: String
+    Default: "192.168.20.0/24"
+
+  PrivateSubnet3CIDR:
+    Type: String
+    Default: "192.168.30.0/24"
+
+  DBPrivateSubnet1CIDR:
+    Type: String
+    Default: "192.168.110.0/24"
+
+  DBPrivateSubnet2CIDR:
+    Type: String
+    Default: "192.168.120.0/24"
+
+  DBPrivateSubnet3CIDR:
+    Type: String
+    Default: "192.168.130.0/24"
+
+  CreateTransitGateway:
+    Type: String
+
+  OtherTransitGatewayID:
+    Type: String
+
+
+Conditions:
+  isTrueCreateTG: !Equals [!Ref CreateTransitGateway, TRUE]
+  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
+
+
+Resources:
+# Create VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-VPC
+
+# Create private subnet in zone A
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-PrivateSubnet1
+
+# Create private subnet in zone B
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-PrivateSubnet2
+
+# Create private subnet in zone C (+ HA for productive environments)
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Condition: isProdEnvironmentType
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-PrivateSubnet3
+
+# Create DB private subnet in zone A
+  DBPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref DBPrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-DBPrivateSubnet1
+
+# Create DB private subnet in zone B
+  DBPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref DBPrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-DBPrivateSubnet2
+
+# Create DB private subnet in zone C (+ HA for productive environments)
+  DBPrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Condition: isProdEnvironmentType
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref DBPrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-DBPrivateSubnet3
+
+# Create private subnet route table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-PrivateRouteTable
+
+# Create DB private subnet route table
+  DBPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: VPC
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-DBPrivateRouteTable
+
+# Associate route table to private subnet 1
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - PrivateSubnet1
+      - PrivateRouteTable
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+# Associate route table to private subnet 2
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - PrivateSubnet2
+      - PrivateRouteTable
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+# Associate route table to private subnet 3 (+ HA for productive environments)
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: isProdEnvironmentType
+    DependsOn:
+      - PrivateSubnet3
+      - PrivateRouteTable
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet3
+
+# Associate route table to DB private subnet 1
+  DBPrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - DBPrivateSubnet1
+      - DBPrivateRouteTable
+    Properties:
+      RouteTableId: !Ref DBPrivateRouteTable
+      SubnetId: !Ref DBPrivateSubnet1
+
+# Associate route table to DB private subnet 2
+  DBPrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    DependsOn:
+      - DBPrivateSubnet2
+      - DBPrivateRouteTable
+    Properties:
+      RouteTableId: !Ref DBPrivateRouteTable
+      SubnetId: !Ref DBPrivateSubnet2
+
+# Associate route table to DB private subnet 3 (+ HA for productive environments)
+  DBPrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: isProdEnvironmentType
+    DependsOn:
+      - DBPrivateSubnet3
+      - DBPrivateRouteTable
+    Properties:
+      RouteTableId: !Ref DBPrivateRouteTable
+      SubnetId: !Ref DBPrivateSubnet3
+
+# Create Transit Gateway
+  TransitGateway:
+    Type: AWS::EC2::TransitGateway
+    Condition: isTrueCreateTG
+    DependsOn: VPC  # it's not necessary, but I like to have an order
+    Properties:
+        Description: "Transit Gateway"
+        AmazonSideAsn: 64512
+        AutoAcceptSharedAttachments: "enable"
+        DefaultRouteTableAssociation: "enable"
+        DefaultRouteTablePropagation: "enable"
+        DnsSupport: "enable"
+        VpnEcmpSupport: "enable"
+        Tags: 
+          - 
+            Key: "Environment"
+            Value: !Sub ${EnvironmentName}
+          - 
+            Key: "Name"
+            Value: !Sub ${EnvironmentName}-TGW
+
+# Create wait conditions to attach or not the transit gateway to VPC.
+# This is created due to DependsOn property. DOES NOT ALLOW IF CONDITIONS
+  TGWaitHandle: 
+    Condition: isTrueCreateTG
+    DependsOn: TransitGateway
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  WaitHandle: 
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  WaitCondition: 
+    Type: AWS::CloudFormation::WaitCondition
+    Properties: 
+      Handle: !If [isTrueCreateTG, !Ref TGWaitHandle, !Ref WaitHandle]
+      Timeout: "1"
+      Count: 0
+
+# Create an Transit Gateway attachment in the VPC
+  TransitGatewayAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    DependsOn:
+      - WaitCondition
+      - PrivateSubnet1
+      - PrivateSubnet2
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
+      Tags: 
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-transit-attachment
+      TransitGatewayId: !If [isTrueCreateTG, !Ref TransitGateway, !Ref OtherTransitGatewayID]
+      VpcId: !Ref VPC
+
+# Create destination route 0.0.0.0/0 to transit gateway
+  RouteToTransitGateway:
+    Type: AWS::EC2::Route
+    DependsOn:
+      - PrivateRouteTable
+      - TransitGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayId: !If [isTrueCreateTG, !Ref TransitGateway, !Ref OtherTransitGatewayID]
+
+# In case you need to create a VPN #
+#    CustomerGateway:
+#        Type: AWS::EC2::CustomerGateway
+#        Properties:
+#            BgpAsn: 65000
+#            IpAddress: "61.92.0.150" # not real Public IP
+#            Type: "ipsec.1"
+#            Tags: 
+#              - 
+#                Key: "Name"
+#                Value: "CGW-XXX"
+
+#    VPNGateway:
+#        Type: AWS::EC2::VPNGateway
+#        Properties:
+#            AmazonSideAsn: 64515
+#            Type: "ipsec.1"
+#            Tags: 
+#              - 
+#                Key: "Name"
+#                Value: "VGW-XXX"
+
+#    VPNConnection:
+#        Type: AWS::EC2::VPNConnection
+#        Properties:
+#            Type: "ipsec.1"
+#            StaticRoutesOnly: false
+#            CustomerGatewayId: !Ref CustomerGateway
+#            VpnGatewayId: !Ref VPNGateway
+#            Tags: 
+#              - 
+#                Key: "Name"
+#                Value: "VPN-XXX"
+
+
+Outputs:
+  VPC:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID
+
+  PrivateSubnet1:
+    Description: Private Subnet 1 
+    Value: !Ref PrivateSubnet1
+
+  PrivateSubnet2:
+    Description: Private Subnet 2
+    Value: !Ref PrivateSubnet2
+
+  PrivateSubnet3:
+    Description: Private Subnet 3
+    Condition: isProdEnvironmentType
+    Value: !Ref PrivateSubnet3
+
+  PrivateRouteTable:
+    Description: Private route table
+    Value: !Ref PrivateRouteTable
+
+  DBPrivateSubnet1:
+    Description: DB Private Subnet 1 
+    Value: !Ref DBPrivateSubnet1
+
+  DBPrivateSubnet2:
+    Description: DB Private Subnet 2
+    Value: !Ref DBPrivateSubnet2
+
+  DBPrivateSubnet3:
+    Description: DB Private Subnet 3
+    Condition: isProdEnvironmentType
+    Value: !Ref DBPrivateSubnet3
+
+  DBPrivateRouteTable:
+    Description: DB Private route table
+    Value: !Ref DBPrivateRouteTable

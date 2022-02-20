@@ -1,0 +1,112 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create Route53 Private Hosted Zone"
+
+Parameters:
+  EnvironmentType:
+    Type: String
+
+  EnvironmentName:
+    Type: String
+
+  PrivateDomainName:
+    Type: String
+
+  VpcID:
+    Type: String
+
+  PrivateSubnet1:
+    Type: String
+
+  PrivateSubnet2:
+    Type: String
+
+  PrivateSubnet3:
+    Type: String
+
+  Route53SecurityGroup:
+    Type: String
+
+  OtherHostedZoneIdRoute53:
+    Type: String
+
+  AlbCanonicalHostedZoneID:
+    Type: String
+
+  AlbDNSName:
+    Type: String
+
+  CreatePrivateDomain:
+    Type: String
+
+  RDSEnpointAddr:
+    Type: String
+
+  RDSReaderEnpointAddr:
+    Type: String
+
+Conditions:
+  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
+  isTrueCreatePrivateDomain: !Equals [!Ref CreatePrivateDomain, TRUE]
+
+Resources:
+  HostedZone: 
+    Type: AWS::Route53::HostedZone
+    Condition: isTrueCreatePrivateDomain
+    Properties: 
+      HostedZoneConfig: 
+        Comment: Hosted zone for private domain
+      Name: !Ref PrivateDomainName
+      VPCs:
+        - 
+          VPCId: !Ref VpcID
+          VPCRegion: !Ref AWS::Region
+      HostedZoneTags:
+        - 
+          Key: Environment
+          Value: !Ref EnvironmentName
+        - 
+          Key: Name
+          Value: !Ref PrivateDomainName
+
+  RecordSetGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !If [isTrueCreatePrivateDomain, !GetAtt HostedZone.Id, !Ref OtherHostedZoneIdRoute53]
+      Comment: HostedZone - Record Set Group
+      RecordSets:
+        - Name: !Sub '${EnvironmentName}.${PrivateDomainName}.'
+          Type: A
+          AliasTarget:
+            HostedZoneId: !Ref AlbCanonicalHostedZoneID
+            DNSName: !Ref AlbDNSName
+            EvaluateTargetHealth: 'true'
+        - Name: !Sub 'db.${PrivateDomainName}.'
+          Type: CNAME
+          TTL: '60'
+          ResourceRecords:
+            - !Ref RDSEnpointAddr
+        - Name: !Sub 'dbreader.${PrivateDomainName}.'
+          Type: CNAME
+          TTL: '60'
+          ResourceRecords:
+            - !Ref RDSReaderEnpointAddr
+
+
+  InboundRoute53Resolver:
+    Type: AWS::Route53Resolver::ResolverEndpoint
+    Properties:
+      Direction: 'inbound'
+      IpAddresses:
+        - SubnetId: !Ref PrivateSubnet1
+        - SubnetId: !Ref PrivateSubnet2
+        - !If [isProdEnvironmentType, SubnetId: !Ref PrivateSubnet3, !Ref AWS::NoValue]
+      Name: !Sub ${EnvironmentName}-InboundEndpoint
+      SecurityGroupIds: 
+        - !Ref Route53SecurityGroup
+      Tags: 
+        - 
+          Key: Environment
+          Value: !Ref EnvironmentName
+        - 
+          Key: Name
+          Value: !Sub ${EnvironmentName}-InboundEndpoint

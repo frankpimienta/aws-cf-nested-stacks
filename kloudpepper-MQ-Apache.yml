@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create Amazon MQ -- Apache ActiveMQ"
+
+Parameters:
+  EnvironmentType:
+    Type: String
+
+  EnvironmentName:
+    Type: String
+
+  PrivateSubnet1:
+    Type: String
+
+  PrivateSubnet2:
+    Type: String
+
+  PrivateSubnet3:
+    Type: String
+
+  MQSecurityGroup:
+    Type: String
+
+  MQType:
+    Type: String
+
+  MQUser:
+    Type: String
+
+  MQPassword:
+    Type: String
+
+
+Conditions:
+  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
+
+
+Resources:
+  ConfigurationMQ: 
+    Type: AWS::AmazonMQ::Configuration
+    Properties: 
+      Data: 
+        ? "Fn::Base64"
+        : |         
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <broker advisorySupport="false" deleteAllMessagesOnStartup="true" schedulePeriodForDestinationPurge="10000" xmlns="http://activemq.apache.org/schema/core">
+              <persistenceAdapter>
+                <kahaDB concurrentStoreAndDispatchQueues="false"/>
+              </persistenceAdapter>
+              <destinationPolicy>
+                <policyMap>
+                  <policyEntries>
+                    <policyEntry gcInactiveDestinations="true" inactiveTimoutBeforeGC="600000" topic="&gt;">
+                      <pendingMessageLimitStrategy>
+                        <constantPendingMessageLimitStrategy limit="1000"/>
+                      </pendingMessageLimitStrategy>
+                    </policyEntry>
+                    <policyEntry gcInactiveDestinations="true" inactiveTimoutBeforeGC="600000" queue="&gt;"/>
+                  </policyEntries>
+                </policyMap>
+              </destinationPolicy>
+              <plugins>
+                <forcePersistencyModeBrokerPlugin persistenceFlag="true"/>
+              </plugins>
+            </broker>
+      EngineType: ACTIVEMQ
+      EngineVersion: 5.16.3
+      Name: !Sub ${EnvironmentName}-Configuration-MQ
+
+  ApacheMQ:
+    Type: AWS::AmazonMQ::Broker
+    DependsOn: ConfigurationMQ
+    Properties:
+      AutoMinorVersionUpgrade: 'true'
+      BrokerName: !Sub ${EnvironmentName}-MQ
+      Configuration:
+        Id: !Ref ConfigurationMQ
+        Revision: !GetAtt ConfigurationMQ.Revision
+      DeploymentMode: !If [isProdEnvironmentType, ACTIVE_STANDBY_MULTI_AZ, SINGLE_INSTANCE]
+      EngineType: ActiveMQ
+      EngineVersion: 5.16.3
+      HostInstanceType: !Ref MQType
+      Logs:
+        General: true
+        Audit: false
+      MaintenanceWindowStartTime:
+        DayOfWeek: Sunday
+        TimeOfDay: '22:30'
+        TimeZone: America/Guayaquil
+      PubliclyAccessible: 'false'
+      SecurityGroups:
+        - !Ref MQSecurityGroup
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !If [isProdEnvironmentType, !Ref PrivateSubnet2, !Ref AWS::NoValue]
+      Users:
+        - ConsoleAccess: 'true'
+          Username: !Ref MQUser
+          Password: !Ref MQPassword
+      Tags:
+        - 
+          Key: Environment
+          Value: !Ref EnvironmentName
+        - 
+          Key: Name
+          Value: !Sub ${EnvironmentName}-MQ
+
+
+Outputs:
+  MQEnpointAddr:
+    Description: MQ Endpoint SSL
+    Value: !Join [",", !GetAtt ApacheMQ.OpenWireEndpoints]
