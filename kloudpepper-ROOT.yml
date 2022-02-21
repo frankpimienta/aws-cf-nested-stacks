@@ -7,8 +7,8 @@ Parameters:
     Description: "Select environment type: Productive or Non-Productive"
     Type: String
     AllowedValues:
-      - non-prod
       - prod
+      - nonprod
 
   EnvironmentName:
     Description: "Insert environment name. Example: dev"
@@ -20,6 +20,30 @@ Parameters:
 
   VpcCIDR:
     Description: "Insert VPC CIDR"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  PublicSubnet1CIDR:
+    Description: "Insert public subnet CIDR of zone A"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  PublicSubnet2CIDR:
+    Description: "Insert public subnet CIDR of zone B"
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Please insert a valid range
+
+  PublicSubnet3CIDR:
+    Description: "Insert public subnet CIDR of zone C (In case you select productive environments)"
     Type: String
     MinLength: '9'
     MaxLength: '18'
@@ -75,7 +99,7 @@ Parameters:
     ConstraintDescription: Please insert a valid range
 
   CreateTransitGateway:
-    Description: "Do you want to create a new Transit Gateway? In case of false, insert your Transit Gateway ID in the following option"
+    Description: "Do you want create a new Transit Gateway? In case of false, insert your Transit Gateway ID in the next option"
     Type: String
     Default: TRUE
     AllowedValues:
@@ -128,7 +152,7 @@ Parameters:
   
   DBPassword:
     NoEcho: true
-    Description: "Insert the password of the user that is used for the connection to the database"
+    Description: "Insert the password that is used to connect to the database"
     Type: String
 
   CreatePrivateDomain:
@@ -140,7 +164,7 @@ Parameters:
       - FALSE
 
   OtherHostedZoneIdRoute53:
-    Description: "Insert Hosted Zone ID"
+    Description: "If you have selected to create a private domain, leave this parameter empty. Insert Hosted Zone ID"
     Type: String
 
   DesiredCount:
@@ -161,11 +185,11 @@ Mappings:
   ActiveMQ:
     InstanceTypes:
       prod: "mq.m5.2xlarge"    # 8 vCPUs + 32 GB
-      non-prod: "mq.m5.large"  # 2 vCPUs + 8 GB
+      nonprod: "mq.m5.large"  # 2 vCPUs + 8 GB
   Aurora:
     InstanceTypes:
       prod: "db.r5.2xlarge"    # 8 vCPUs + 64 GB
-      non-prod: "db.r5.large"  # 2 vCPUs + 16 GB
+      nonprod: "db.r5.large"  # 2 vCPUs + 16 GB
 
 
 Metadata:
@@ -183,6 +207,9 @@ Metadata:
           default: "NETWORK PARAMETERS"
         Parameters:
           - VpcCIDR
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
+          - PublicSubnet3CIDR
           - PrivateSubnet1CIDR
           - PrivateSubnet2CIDR
           - PrivateSubnet3CIDR
@@ -237,9 +264,15 @@ Resources:
         EnvironmentType: !Ref EnvironmentType
         EnvironmentName: !Ref EnvironmentName
         VpcCIDR: !Ref VpcCIDR
+        PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
+        PublicSubnet2CIDR: !Ref PublicSubnet2CIDR
+        PublicSubnet3CIDR: !Ref PublicSubnet3CIDR
         PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
         PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
         PrivateSubnet3CIDR: !Ref PrivateSubnet3CIDR
+        DBPrivateSubnet1CIDR: !Ref DBPrivateSubnet1CIDR
+        DBPrivateSubnet2CIDR: !Ref DBPrivateSubnet2CIDR
+        DBPrivateSubnet3CIDR: !Ref DBPrivateSubnet3CIDR
         CreateTransitGateway: !Ref CreateTransitGateway
         OtherTransitGatewayID: !Ref OtherTransitGatewayID
 
@@ -254,6 +287,9 @@ Resources:
         EnvironmentName: !Ref EnvironmentName
         VpcID: !GetAtt VPCStack.Outputs.VPC
         VpcCIDR: !Ref VpcCIDR
+        PublicSubnet1: !GetAtt VPCStack.Outputs.PublicSubnet1
+        PublicSubnet2: !GetAtt VPCStack.Outputs.PublicSubnet2
+        PublicSubnet3: !GetAtt VPCStack.Outputs.PublicSubnet3
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
         PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
@@ -326,6 +362,9 @@ Resources:
         EnvironmentName: !Ref EnvironmentName
         PrivateDomainName: !Ref PrivateDomainName
         VpcID: !GetAtt VPCStack.Outputs.VPC
+        PublicSubnet1: !GetAtt VPCStack.Outputs.PublicSubnet1
+        PublicSubnet2: !GetAtt VPCStack.Outputs.PublicSubnet2
+        PublicSubnet3: !GetAtt VPCStack.Outputs.PublicSubnet3
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
         PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
