@@ -59,12 +59,11 @@ Resources:
 
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
-    DependsOn: ALBSecurityGroup
     Properties:
       GroupDescription: ECS security group
       GroupName: !Sub ${EnvironmentName}-ECS-SG
       SecurityGroupIngress:
-      - SourceSecurityGroupId: !GetAtt ALBSecurityGroup.GroupId
+      - SourceSecurityGroupId: !If [isProdEnvironmentType, !GetAtt ExternalALBSecurityGroup.GroupId, !GetAtt InternalALBSecurityGroup.GroupId]
         FromPort: 8554
         IpProtocol: tcp
         ToPort: 8554
