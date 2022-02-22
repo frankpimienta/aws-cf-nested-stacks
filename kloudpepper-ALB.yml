@@ -234,9 +234,9 @@ Resources:
           ForwardConfig:
             TargetGroups:
               - TargetGroupArn: !Ref TargetGroupAPP1
-                Weight: 1
+                Weight: 1 # 50%
               - TargetGroupArn: !Ref TargetGroupAPP2
-                Weight: 1
+                Weight: 1 # 50%
             TargetGroupStickinessConfig: 
               Enabled: false
       Conditions:

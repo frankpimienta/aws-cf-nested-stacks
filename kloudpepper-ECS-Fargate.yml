@@ -44,9 +44,6 @@ Parameters:
   DBPassword:
     Type: String
 
-  RDSEnpointAddr:
-    Type: String
-
   RDSEnpointPort:
     Type: String
 
