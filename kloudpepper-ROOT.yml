@@ -332,8 +332,7 @@ Resources:
         PublicSubnet2: !GetAtt VPCStack.Outputs.PublicSubnet2
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        InternalALBSecurityGroup: !GetAtt SGStack.Outputs.InternalALBSecurityGroup
-        ExternalALBSecurityGroup: !GetAtt SGStack.Outputs.ExternalALBSecurityGroup
+        ALBSecurityGroup: !GetAtt SGStack.Outputs.ALBSecurityGroup
         CreateALBCertificate: !Ref CreateALBCertificate
         OtherARNCertificate: !Ref OtherARNCertificate
 

@@ -17,40 +17,21 @@ Parameters:
 
 Conditions:
   isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
-  isNonProdEnvironmentType: !Equals [!Ref EnvironmentType, nonprod]
 
+# 10.0.0.0/16 = On-premises Network. Enter the CIDR or the IPs you want to connect to the balancer
 
 Resources:
-  InternalALBSecurityGroup:
+  ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
-    Condition: isNonProdEnvironmentType
     Properties:
       GroupDescription: ALB security group
       GroupName: !Sub ${EnvironmentName}-ALB-SG
       SecurityGroupIngress:
-      - CidrIp: 10.0.0.0/16 # On-premises Network. Enter the CIDR or the IPs you want to connect to the balancer
-        FromPort: 8445
+      - CidrIp: !If [isProdEnvironmentType, 0.0.0.0/0, 10.0.0.0/16]
+        FromPort: !If [isProdEnvironmentType, 443, 8445]
         IpProtocol: tcp
-        ToPort: 8445
-        Description: on-premises network
-      VpcId: !Ref VpcID
-      Tags:
-        -
-          Key: Name
-          Value: !Sub ${EnvironmentName}-ALB-SG
-
-  ExternalALBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Condition: isProdEnvironmentType
-    Properties:
-      GroupDescription: ALB security group
-      GroupName: !Sub ${EnvironmentName}-ALB-SG
-      SecurityGroupIngress:
-      - CidrIp: 0.0.0.0/0
-        FromPort: 443
-        IpProtocol: tcp
-        ToPort: 443
-        Description: public ALB
+        ToPort: !If [isProdEnvironmentType, 443, 8445]
+        Description: !If [isProdEnvironmentType, public network, on-premises network]
       VpcId: !Ref VpcID
       Tags:
         -
@@ -63,7 +44,7 @@ Resources:
       GroupDescription: ECS security group
       GroupName: !Sub ${EnvironmentName}-ECS-SG
       SecurityGroupIngress:
-      - SourceSecurityGroupId: !If [isProdEnvironmentType, !GetAtt ExternalALBSecurityGroup.GroupId, !GetAtt InternalALBSecurityGroup.GroupId]
+      - SourceSecurityGroupId: !GetAtt ALBSecurityGroup.GroupId
         FromPort: 8554
         IpProtocol: tcp
         ToPort: 8554
@@ -158,15 +139,9 @@ Resources:
           Value: !Sub ${EnvironmentName}-R53Resolver-SG
 
 Outputs:
-  InternalALBSecurityGroup:
-    Condition: isNonProdEnvironmentType
+  ALBSecurityGroup:
     Description: ALB security group
-    Value: !GetAtt InternalALBSecurityGroup.GroupId
-
-  ExternalALBSecurityGroup:
-    Condition: isProdEnvironmentType
-    Description: ALB security group
-    Value: !GetAtt ExternalALBSecurityGroup.GroupId
+    Value: !GetAtt ALBSecurityGroup.GroupId
 
   ECSSecurityGroup:
     Description: ECS security group

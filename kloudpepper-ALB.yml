@@ -26,10 +26,7 @@ Parameters:
   PrivateSubnet2:
     Type: String
 
-  InternalALBSecurityGroup:
-    Type: String
-
-  ExternalALBSecurityGroup:
+  ALBSecurityGroup:
     Type: String
 
   CreateALBCertificate:
@@ -183,7 +180,7 @@ Resources:
         - !If [isProdEnvironmentType, !Ref PublicSubnet1, !Ref PrivateSubnet1]
         - !If [isProdEnvironmentType, !Ref PublicSubnet2, !Ref PrivateSubnet2]
       SecurityGroups: 
-        - !If [isProdEnvironmentType, !Ref ExternalALBSecurityGroup, !Ref InternalALBSecurityGroup]
+        - !Ref ALBSecurityGroup
       IpAddressType: "ipv4"
       LoadBalancerAttributes: 
         - 
