@@ -14,16 +14,22 @@ Parameters:
   VpcID:
     Type: String
 
+  PublicSubnet1:
+    Type: String
+
+  PublicSubnet2:
+    Type: String
+
   PrivateSubnet1:
     Type: String
 
   PrivateSubnet2:
     Type: String
 
-  PrivateSubnet3:
+  InternalALBSecurityGroup:
     Type: String
 
-  ALBSecurityGroup:
+  ExternalALBSecurityGroup:
     Type: String
 
   CreateALBCertificate:
@@ -171,14 +177,13 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub ${EnvironmentName}-ALB
-      Scheme: "internal"
+      Scheme: !If [isProdEnvironmentType, "internet-facing", "internal"]
       Type: "application"
-      Subnets: 
-        - !Ref PrivateSubnet1
-        - !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
+      Subnets:
+        - !If [isProdEnvironmentType, !Ref PublicSubnet1, !Ref PrivateSubnet1]
+        - !If [isProdEnvironmentType, !Ref PublicSubnet2, !Ref PrivateSubnet2]
       SecurityGroups: 
-        - !Ref ALBSecurityGroup
+        - !If [isProdEnvironmentType, !Ref ExternalALBSecurityGroup, !Ref InternalALBSecurityGroup]
       IpAddressType: "ipv4"
       LoadBalancerAttributes: 
         - 
@@ -210,7 +215,7 @@ Resources:
     DependsOn: ApplicationLoadBalancer
     Properties:
       LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 8445
+      Port: !If [isProdEnvironmentType, 443, 8445]
       Protocol: "HTTPS"
       SslPolicy: "ELBSecurityPolicy-FS-1-2-Res-2020-10"
       Certificates: 
@@ -233,23 +238,6 @@ Resources:
             TargetGroups:
               - TargetGroupArn: !Ref TargetGroupAPP1
                 Weight: 1
-            TargetGroupStickinessConfig: 
-              Enabled: false
-      Conditions:
-        - Field: "path-pattern"
-          Values:
-            - "/app1*"
-      ListenerArn: !Ref HTTPSListener
-      Priority: 1
-
-  ListenerRule2:
-    Type: AWS::ElasticLoadBalancingV2::ListenerRule
-    DependsOn: HTTPSListener
-    Properties:
-      Actions:
-        - Type: "forward"
-          ForwardConfig:
-            TargetGroups:
               - TargetGroupArn: !Ref TargetGroupAPP2
                 Weight: 1
             TargetGroupStickinessConfig: 
@@ -257,9 +245,9 @@ Resources:
       Conditions:
         - Field: "path-pattern"
           Values:
-            - "/app2*"
+            - "/demo*"
       ListenerArn: !Ref HTTPSListener
-      Priority: 2
+      Priority: 1
 
 
 Outputs:

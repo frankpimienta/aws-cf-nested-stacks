@@ -17,9 +17,6 @@ Parameters:
   PrivateSubnet2:
     Type: String
 
-  PrivateSubnet3:
-    Type: String
-
   ECSSecurityGroup:
     Type: String
 
@@ -296,7 +293,6 @@ Resources:
           Subnets:
             - !Ref PrivateSubnet1
             - !Ref PrivateSubnet2
-            - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       TaskDefinition: !Ref TaskDefinitionApp1
       EnableExecuteCommand: 'true'
       HealthCheckGracePeriodSeconds: 60
@@ -333,7 +329,6 @@ Resources:
           Subnets:
             - !Ref PrivateSubnet1
             - !Ref PrivateSubnet2
-            - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       TaskDefinition: !Ref TaskDefinitionApp2
       EnableExecuteCommand: 'true'
       HealthCheckGracePeriodSeconds: 60

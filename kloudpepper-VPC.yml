@@ -2,51 +2,29 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template to create a VPC, subnets, and route table"
 
 Parameters:
-  EnvironmentType:
-    Type: String
-
   EnvironmentName:
     Type: String
 
   VpcCIDR:
     Type: String
-    Default: "172.16.0.0/16"
 
   PublicSubnet1CIDR:
     Type: String
-    Default: "172.16.1.0/24"
 
   PublicSubnet2CIDR:
     Type: String
-    Default: "172.16.2.0/24"
-
-  PublicSubnet3CIDR:
-    Type: String
-    Default: "172.16.3.0/24"
 
   PrivateSubnet1CIDR:
     Type: String
-    Default: "172.16.51.0/24"
 
   PrivateSubnet2CIDR:
     Type: String
-    Default: "172.16.52.0/24"
-
-  PrivateSubnet3CIDR:
-    Type: String
-    Default: "172.16.53.0/24"
 
   DBPrivateSubnet1CIDR:
     Type: String
-    Default: "172.16.111.0/24"
 
   DBPrivateSubnet2CIDR:
     Type: String
-    Default: "172.16.112.0/24"
-
-  DBPrivateSubnet3CIDR:
-    Type: String
-    Default: "172.16.113.0/24"
 
   CreateTransitGateway:
     Type: String
@@ -57,7 +35,6 @@ Parameters:
 
 Conditions:
   isTrueCreateTG: !Equals [!Ref CreateTransitGateway, TRUE]
-  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
 
 
 Resources:
@@ -98,20 +75,6 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-PublicSubnet2
 
-# Create public subnet in zone C (+ HA for productive environments)
-  PublicSubnet3:
-    Type: AWS::EC2::Subnet
-    Condition: isProdEnvironmentType
-    DependsOn: VPC
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
-      CidrBlock: !Ref PublicSubnet3CIDR
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub ${EnvironmentName}-PublicSubnet3
-
 # Create private subnet in zone A
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -138,20 +101,6 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName}-PrivateSubnet2
 
-# Create private subnet in zone C (+ HA for productive environments)
-  PrivateSubnet3:
-    Type: AWS::EC2::Subnet
-    Condition: isProdEnvironmentType
-    DependsOn: VPC
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
-      CidrBlock: !Ref PrivateSubnet3CIDR
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Sub ${EnvironmentName}-PrivateSubnet3
-
 # Create DB private subnet in zone A
   DBPrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -177,20 +126,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName}-DBPrivateSubnet2
-
-# Create DB private subnet in zone C (+ HA for productive environments)
-  DBPrivateSubnet3:
-    Type: AWS::EC2::Subnet
-    Condition: isProdEnvironmentType
-    DependsOn: VPC
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
-      CidrBlock: !Ref DBPrivateSubnet3CIDR
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Sub ${EnvironmentName}-DBPrivateSubnet3
 
 # Create public subnet route table
   PublicRouteTable:
@@ -242,17 +177,6 @@ Resources:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet2
 
-# Associate route table to public subnet 3 (+ HA for productive environments)
-  PublicSubnet3RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: isProdEnvironmentType
-    DependsOn:
-      - PublicSubnet3
-      - PublicRouteTable
-    Properties:
-      RouteTableId: !Ref PublicRouteTable
-      SubnetId: !Ref PublicSubnet3
-
 # Associate route table to private subnet 1
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -273,17 +197,6 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref PrivateSubnet2
 
-# Associate route table to private subnet 3 (+ HA for productive environments)
-  PrivateSubnet3RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: isProdEnvironmentType
-    DependsOn:
-      - PrivateSubnet3
-      - PrivateRouteTable
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      SubnetId: !Ref PrivateSubnet3
-
 # Associate route table to DB private subnet 1
   DBPrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -303,17 +216,6 @@ Resources:
     Properties:
       RouteTableId: !Ref DBPrivateRouteTable
       SubnetId: !Ref DBPrivateSubnet2
-
-# Associate route table to DB private subnet 3 (+ HA for productive environments)
-  DBPrivateSubnet3RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Condition: isProdEnvironmentType
-    DependsOn:
-      - DBPrivateSubnet3
-      - DBPrivateRouteTable
-    Properties:
-      RouteTableId: !Ref DBPrivateRouteTable
-      SubnetId: !Ref DBPrivateSubnet3
 
 
 # Create Internet Gateway
@@ -400,7 +302,6 @@ Resources:
       SubnetIds:
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       Tags: 
         - Key: Name
           Value: !Sub ${EnvironmentName}-transit-attachment
@@ -490,11 +391,6 @@ Outputs:
     Description: Public Subnet 2
     Value: !Ref PublicSubnet2
 
-  PublicSubnet3:
-    Description: Public Subnet 3
-    Condition: isProdEnvironmentType
-    Value: !Ref PublicSubnet3
-
   PrivateSubnet1:
     Description: Private Subnet 1 
     Value: !Ref PrivateSubnet1
@@ -503,11 +399,6 @@ Outputs:
     Description: Private Subnet 2
     Value: !Ref PrivateSubnet2
 
-  PrivateSubnet3:
-    Description: Private Subnet 3
-    Condition: isProdEnvironmentType
-    Value: !Ref PrivateSubnet3
-
   DBPrivateSubnet1:
     Description: DB Private Subnet 1 
     Value: !Ref DBPrivateSubnet1
@@ -515,11 +406,6 @@ Outputs:
   DBPrivateSubnet2:
     Description: DB Private Subnet 2
     Value: !Ref DBPrivateSubnet2
-
-  DBPrivateSubnet3:
-    Description: DB Private Subnet 3
-    Condition: isProdEnvironmentType
-    Value: !Ref DBPrivateSubnet3
 
   PublicRouteTable:
     Description: Public route table

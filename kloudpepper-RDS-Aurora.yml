@@ -14,9 +14,6 @@ Parameters:
   DBPrivateSubnet2:
     Type: String
 
-  DBPrivateSubnet3:
-    Type: String
-
   DBSecurityGroup:
     Type: String
 
@@ -42,7 +39,6 @@ Resources:
       SubnetIds: 
         - !Ref DBPrivateSubnet1
         - !Ref DBPrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref DBPrivateSubnet3, !Ref AWS::NoValue]
 
   DBClusterParameterGroup:
     Type: AWS::RDS::DBClusterParameterGroup

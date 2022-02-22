@@ -2,6 +2,9 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template to create Security Groups"
 
 Parameters:
+  EnvironmentType:
+    Type: String
+
   EnvironmentName:
     Type: String
 
@@ -12,9 +15,15 @@ Parameters:
     Type: String
 
 
+Conditions:
+  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
+  isNonProdEnvironmentType: !Equals [!Ref EnvironmentType, nonprod]
+
+
 Resources:
-  ALBSecurityGroup:
+  InternalALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: isNonProdEnvironmentType
     Properties:
       GroupDescription: ALB security group
       GroupName: !Sub ${EnvironmentName}-ALB-SG
@@ -24,6 +33,24 @@ Resources:
         IpProtocol: tcp
         ToPort: 8445
         Description: on-premises network
+      VpcId: !Ref VpcID
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${EnvironmentName}-ALB-SG
+
+  ExternalALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: isProdEnvironmentType
+    Properties:
+      GroupDescription: ALB security group
+      GroupName: !Sub ${EnvironmentName}-ALB-SG
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 443
+        IpProtocol: tcp
+        ToPort: 443
+        Description: public ALB
       VpcId: !Ref VpcID
       Tags:
         -
@@ -132,9 +159,15 @@ Resources:
           Value: !Sub ${EnvironmentName}-R53Resolver-SG
 
 Outputs:
-  ALBSecurityGroup:
+  InternalALBSecurityGroup:
+    Condition: isNonProdEnvironmentType
     Description: ALB security group
-    Value: !GetAtt ALBSecurityGroup.GroupId
+    Value: !GetAtt InternalALBSecurityGroup.GroupId
+
+  ExternalALBSecurityGroup:
+    Condition: isProdEnvironmentType
+    Description: ALB security group
+    Value: !GetAtt ExternalALBSecurityGroup.GroupId
 
   ECSSecurityGroup:
     Description: ECS security group

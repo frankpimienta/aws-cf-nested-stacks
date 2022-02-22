@@ -2,9 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template to create VPC Endpoints"
 
 Parameters:
-  EnvironmentType:
-    Type: String
-
   VpcID:
     Type: String
 
@@ -14,18 +11,11 @@ Parameters:
   PrivateSubnet2:
     Type: String
 
-  PrivateSubnet3:
-    Type: String
-
   PrivateRouteTable:
     Type: String
 
   VPCEnpointSecurityGroup:
     Type: String
-
-
-Conditions:
-  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
 
 
 Resources:
@@ -39,7 +29,6 @@ Resources:
       SubnetIds: 
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       VpcEndpointType: 'Interface'
       VpcId: !Ref VpcID
 
@@ -53,7 +42,6 @@ Resources:
       SubnetIds: 
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       VpcEndpointType: 'Interface'
       VpcId: !Ref VpcID
 
@@ -67,7 +55,6 @@ Resources:
       SubnetIds: 
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       VpcEndpointType: 'Interface'
       VpcId: !Ref VpcID
 
@@ -81,7 +68,6 @@ Resources:
       SubnetIds: 
         - !Ref PrivateSubnet1
         - !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, !Ref PrivateSubnet3, !Ref AWS::NoValue]
       VpcEndpointType: 'Interface'
       VpcId: !Ref VpcID
 

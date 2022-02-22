@@ -15,7 +15,7 @@ Parameters:
     Type: String
 
   PrivateDomainName:
-    Description: "Insert private domain name. Example: kloudpepper.com"
+    Description: "Insert domain name. Example: kloudpepper.com"
     Type: String
 
   VpcCIDR:
@@ -42,14 +42,6 @@ Parameters:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: Please insert a valid range
 
-  PublicSubnet3CIDR:
-    Description: "Insert public subnet CIDR of zone C (In case you select productive environments)"
-    Type: String
-    MinLength: '9'
-    MaxLength: '18'
-    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
-    ConstraintDescription: Please insert a valid range
-
   PrivateSubnet1CIDR:
     Description: "Insert private subnet CIDR of zone A"
     Type: String
@@ -60,14 +52,6 @@ Parameters:
 
   PrivateSubnet2CIDR:
     Description: "Insert private subnet CIDR of zone B"
-    Type: String
-    MinLength: '9'
-    MaxLength: '18'
-    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
-    ConstraintDescription: Please insert a valid range
-
-  PrivateSubnet3CIDR:
-    Description: "Insert private subnet CIDR of zone C (In case you select productive environments)"
     Type: String
     MinLength: '9'
     MaxLength: '18'
@@ -90,16 +74,8 @@ Parameters:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: Please insert a valid range
 
-  DBPrivateSubnet3CIDR:
-    Description: "Insert DB private subnet CIDR of zone C (In case you select productive environments)"
-    Type: String
-    MinLength: '9'
-    MaxLength: '18'
-    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
-    ConstraintDescription: Please insert a valid range
-
   CreateTransitGateway:
-    Description: "Do you want create a new Transit Gateway? In case of false, insert your Transit Gateway ID in the next option"
+    Description: "Do you want create a new Transit Gateway?"
     Type: String
     Default: TRUE
     AllowedValues:
@@ -107,11 +83,11 @@ Parameters:
       - FALSE
 
   OtherTransitGatewayID:
-    Description: "Insert your Transit Gateway ID. If you have selected to create a new Transit Gateway, leave this parameter empty"
+    Description: "Optional. Insert Transit Gateway ID. Leave this blank if you are not going to use another Transit Gateway"
     Type: String
 
   CreateALBCertificate:
-    Description: "Do you want to create a private certificate? In case of false, insert the ARN of your certificate previously uploaded to ACM"
+    Description: "Do you want to create private certificate authority (CA)?"
     Type: String
     Default: TRUE
     AllowedValues:
@@ -119,8 +95,9 @@ Parameters:
       - FALSE
 
   OtherARNCertificate:
-    Description: "Insert the ARN of your security certificate"
+    Description: "Optional. Insert Certificate ARN. Leave this blank if you are not going to use another certificate stored in ACM"
     Type: String
+    Default: ""
 
   MQUser:
     NoEcho: false
@@ -133,7 +110,7 @@ Parameters:
     Type: String
 
   CreateNewAuroraDB:
-    Description: "Do you want to create a new database? In case of false, insert the ARN of your snapshot stored in RDS"
+    Description: "Do you want to create a new database?"
     Type: String
     Default: TRUE
     AllowedValues:
@@ -141,7 +118,7 @@ Parameters:
       - FALSE
 
   DBSnapshotARN:
-    Description: Optional. DB Snapshot ID to restore database. Leave this blank if you are not restoring from a snapshot.
+    Description: "Optional. DB Snapshot ID to restore database. Leave this blank if you are not restoring from a snapshot"
     Type: String
     Default: ""
 
@@ -149,14 +126,14 @@ Parameters:
     NoEcho: false
     Description: "Insert the username that is used to connect to the database"
     Type: String
-  
+
   DBPassword:
     NoEcho: true
     Description: "Insert the password that is used to connect to the database"
     Type: String
 
   CreatePrivateDomain:
-    Description: "Do you want to create a private domain? In case of false, insert the ID of your private domain"
+    Description: "Do you want to create a private hosted zone?"
     Type: String
     Default: TRUE
     AllowedValues:
@@ -164,8 +141,9 @@ Parameters:
       - FALSE
 
   OtherHostedZoneIdRoute53:
-    Description: "If you have selected to create a private domain, leave this parameter empty. Insert Hosted Zone ID"
+    Description: "Optional. Insert Hosted Zone ID. Leave this blank if you are not going to use a created private hosted zone"
     Type: String
+    Default: ""
 
   DesiredCount:
     Description: "Insert the number of desired tasks to be executed in each service"
@@ -184,12 +162,12 @@ Parameters:
 Mappings: 
   ActiveMQ:
     InstanceTypes:
-      prod: "mq.m5.2xlarge"    # 8 vCPUs + 32 GB
-      nonprod: "mq.m5.large"  # 2 vCPUs + 8 GB
+      prod: "mq.t3.micro"     # 2 vCPUs + 1 GB
+      nonprod: "mq.t2.micro"  # 1 vCPUs + 1 GB
   Aurora:
     InstanceTypes:
-      prod: "db.r5.2xlarge"    # 8 vCPUs + 64 GB
-      nonprod: "db.r5.large"  # 2 vCPUs + 16 GB
+      prod: "db.t2.medium"    # 2 vCPUs + 4 GB
+      nonprod: "db.t2.small"  # 1 vCPUs + 2 GB
 
 
 Metadata:
@@ -209,13 +187,10 @@ Metadata:
           - VpcCIDR
           - PublicSubnet1CIDR
           - PublicSubnet2CIDR
-          - PublicSubnet3CIDR
           - PrivateSubnet1CIDR
           - PrivateSubnet2CIDR
-          - PrivateSubnet3CIDR
           - DBPrivateSubnet1CIDR
           - DBPrivateSubnet2CIDR
-          - DBPrivateSubnet3CIDR
           - CreateTransitGateway
           - OtherTransitGatewayID
       - 
@@ -261,18 +236,14 @@ Resources:
       TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-VPC.yml
       TimeoutInMinutes: 5
       Parameters:
-        EnvironmentType: !Ref EnvironmentType
         EnvironmentName: !Ref EnvironmentName
         VpcCIDR: !Ref VpcCIDR
         PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
         PublicSubnet2CIDR: !Ref PublicSubnet2CIDR
-        PublicSubnet3CIDR: !Ref PublicSubnet3CIDR
         PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
         PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
-        PrivateSubnet3CIDR: !Ref PrivateSubnet3CIDR
         DBPrivateSubnet1CIDR: !Ref DBPrivateSubnet1CIDR
         DBPrivateSubnet2CIDR: !Ref DBPrivateSubnet2CIDR
-        DBPrivateSubnet3CIDR: !Ref DBPrivateSubnet3CIDR
         CreateTransitGateway: !Ref CreateTransitGateway
         OtherTransitGatewayID: !Ref OtherTransitGatewayID
 
@@ -289,13 +260,10 @@ Resources:
         VpcCIDR: !Ref VpcCIDR
         PublicSubnet1: !GetAtt VPCStack.Outputs.PublicSubnet1
         PublicSubnet2: !GetAtt VPCStack.Outputs.PublicSubnet2
-        PublicSubnet3: !GetAtt VPCStack.Outputs.PublicSubnet3
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
         DBPrivateSubnet1: !GetAtt VPCStack.Outputs.DBPrivateSubnet1
         DBPrivateSubnet2: !GetAtt VPCStack.Outputs.DBPrivateSubnet2
-        DBPrivateSubnet3: !GetAtt VPCStack.Outputs.DBPrivateSubnet3
 
   SGStack:
     Type: AWS::CloudFormation::Stack
@@ -304,6 +272,7 @@ Resources:
       TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-SG.yml
       TimeoutInMinutes: 5
       Parameters:
+        EnvironmentType: !Ref EnvironmentType
         EnvironmentName: !Ref EnvironmentName
         VpcID: !GetAtt VPCStack.Outputs.VPC
         VpcCIDR: !Ref VpcCIDR
@@ -317,11 +286,9 @@ Resources:
       TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-VPCEndpoints.yml
       TimeoutInMinutes: 30
       Parameters:
-        EnvironmentType: !Ref EnvironmentType
         VpcID: !GetAtt VPCStack.Outputs.VPC
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
         VPCEnpointSecurityGroup: !GetAtt SGStack.Outputs.VPCEnpointSecurityGroup
         PrivateRouteTable: !GetAtt VPCStack.Outputs.PrivateRouteTable
 
@@ -346,7 +313,6 @@ Resources:
         EnvironmentName: !Ref EnvironmentName
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
         EFSSecurityGroup: !GetAtt SGStack.Outputs.EFSSecurityGroup
 
   ALBStack:
@@ -364,11 +330,10 @@ Resources:
         VpcID: !GetAtt VPCStack.Outputs.VPC
         PublicSubnet1: !GetAtt VPCStack.Outputs.PublicSubnet1
         PublicSubnet2: !GetAtt VPCStack.Outputs.PublicSubnet2
-        PublicSubnet3: !GetAtt VPCStack.Outputs.PublicSubnet3
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
-        ALBSecurityGroup: !GetAtt SGStack.Outputs.ALBSecurityGroup
+        InternalALBSecurityGroup: !GetAtt SGStack.Outputs.InternalALBSecurityGroup
+        ExternalALBSecurityGroup: !GetAtt SGStack.Outputs.ExternalALBSecurityGroup
         CreateALBCertificate: !Ref CreateALBCertificate
         OtherARNCertificate: !Ref OtherARNCertificate
 
@@ -386,7 +351,6 @@ Resources:
         EnvironmentName: !Ref EnvironmentName
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
         MQSecurityGroup: !GetAtt SGStack.Outputs.MQSecurityGroup
         MQType: !FindInMap [ActiveMQ, InstanceTypes, !Ref EnvironmentType]
         MQUser: !Ref MQUser
@@ -406,7 +370,6 @@ Resources:
         EnvironmentName: !Ref EnvironmentName
         DBPrivateSubnet1: !GetAtt VPCStack.Outputs.DBPrivateSubnet1
         DBPrivateSubnet2: !GetAtt VPCStack.Outputs.DBPrivateSubnet2
-        DBPrivateSubnet3: !GetAtt VPCStack.Outputs.DBPrivateSubnet3
         DBSecurityGroup: !GetAtt SGStack.Outputs.DBSecurityGroup
         DBType: !FindInMap [Aurora, InstanceTypes, !Ref EnvironmentType]
         CreateNewAuroraDB: !Ref CreateNewAuroraDB
@@ -421,13 +384,11 @@ Resources:
       TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-Route53.yml
       TimeoutInMinutes: 5
       Parameters:
-        EnvironmentType: !Ref EnvironmentType
         EnvironmentName: !Ref EnvironmentName
         PrivateDomainName: !Ref PrivateDomainName
         VpcID: !GetAtt VPCStack.Outputs.VPC
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
         Route53SecurityGroup: !GetAtt SGStack.Outputs.Route53SecurityGroup
         AlbCanonicalHostedZoneID: !GetAtt ALBStack.Outputs.AlbCanonicalHostedZoneID
         AlbDNSName: !GetAtt ALBStack.Outputs.AlbDNSName
@@ -454,7 +415,6 @@ Resources:
         PrivateDomainName: !Ref PrivateDomainName
         PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        PrivateSubnet3: !GetAtt VPCStack.Outputs.PrivateSubnet3
         ECSSecurityGroup: !GetAtt SGStack.Outputs.ECSSecurityGroup
         DesiredCount: !Ref DesiredCount
         ImageUrlApp1: !Ref ImageUrlApp1

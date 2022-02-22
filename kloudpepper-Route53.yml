@@ -2,9 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template to create Route53 Private Hosted Zone"
 
 Parameters:
-  EnvironmentType:
-    Type: String
-
   EnvironmentName:
     Type: String
 
@@ -18,9 +15,6 @@ Parameters:
     Type: String
 
   PrivateSubnet2:
-    Type: String
-
-  PrivateSubnet3:
     Type: String
 
   Route53SecurityGroup:
@@ -45,7 +39,6 @@ Parameters:
     Type: String
 
 Conditions:
-  isProdEnvironmentType: !Equals [!Ref EnvironmentType, prod]
   isTrueCreatePrivateDomain: !Equals [!Ref CreatePrivateDomain, TRUE]
 
 Resources:
@@ -99,7 +92,6 @@ Resources:
       IpAddresses:
         - SubnetId: !Ref PrivateSubnet1
         - SubnetId: !Ref PrivateSubnet2
-        - !If [isProdEnvironmentType, SubnetId: !Ref PrivateSubnet3, !Ref AWS::NoValue]
       Name: !Sub ${EnvironmentName}-InboundEndpoint
       SecurityGroupIds: 
         - !Ref Route53SecurityGroup
