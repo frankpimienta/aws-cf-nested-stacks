@@ -399,3 +399,37 @@ Resources:
         RDSReaderEnpointAddr: !GetAtt RDSStack.Outputs.RDSReaderEnpointAddr
         CreatePrivateDomain: !Ref CreatePrivateDomain
         OtherHostedZoneIdRoute53: !Ref OtherHostedZoneIdRoute53
+
+  ECSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - VPCStack
+      - SGStack
+      - EFSStack
+      - ALBStack
+      - MQStack
+      - RDSStack
+    Properties:
+      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-ECS-Fargate.yml
+      TimeoutInMinutes: 30
+      Parameters:
+        EnvironmentType: !Ref EnvironmentType
+        EnvironmentName: !Ref EnvironmentName
+        PrivateDomainName: !Ref PrivateDomainName
+        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
+        ECSSecurityGroup: !GetAtt SGStack.Outputs.ECSSecurityGroup
+        DesiredCount: !Ref DesiredCount
+        ImageUrlApp1: !Ref ImageUrlApp1
+        ImageUrlApp2: !Ref ImageUrlApp2
+        MQUser: !Ref MQUser
+        MQPassword: !Ref MQPassword
+        MQEnpointAddr: !GetAtt MQStack.Outputs.MQEnpointAddr
+        DBUser: !Ref DBUser
+        DBPassword: !Ref DBPassword
+        RDSEnpointPort: !GetAtt RDSStack.Outputs.RDSEnpointPort
+        TargetGroupAPP1: !GetAtt ALBStack.Outputs.TargetGroupAPP1
+        TargetGroupAPP2: !GetAtt ALBStack.Outputs.TargetGroupAPP2
+        FileSystemId: !GetAtt EFSStack.Outputs.FileSystemId
+        AccessPointIdDataApp1: !GetAtt EFSStack.Outputs.AccessPointIdDataApp1
+        AccessPointIdDataApp2: !GetAtt EFSStack.Outputs.AccessPointIdDataApp2
