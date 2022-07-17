@@ -54,23 +54,6 @@ Resources:
           Key: Name
           Value: !Sub ${EnvironmentName}-ECS-SG
 
-  MQSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    DependsOn: ECSSecurityGroup
-    Properties:
-      GroupDescription: MQ security group
-      GroupName: !Sub ${EnvironmentName}-MQ-SG
-      SecurityGroupIngress:
-      - SourceSecurityGroupId: !GetAtt ECSSecurityGroup.GroupId
-        FromPort: 61617
-        IpProtocol: tcp
-        ToPort: 61617
-      VpcId: !Ref VpcID
-      Tags:
-        -
-          Key: Name
-          Value: !Sub ${EnvironmentName}-MQ-SG
-
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     DependsOn: ECSSecurityGroup
@@ -121,23 +104,6 @@ Resources:
           Key: Name
           Value: !Sub ${EnvironmentName}-VPCEndpoint-SG
 
-  Route53SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Route53 Resolver security group
-      GroupName: !Sub ${EnvironmentName}-R53Resolver-SG
-      SecurityGroupIngress:
-      - CidrIp: 10.0.0.0/16 # On-premises Network. Enter the CIDR or the IPs you want to connect to the balancer
-        FromPort: 53
-        IpProtocol: udp
-        ToPort: 53
-        Description: on-premises network
-      VpcId: !Ref VpcID
-      Tags:
-        -
-          Key: Name
-          Value: !Sub ${EnvironmentName}-R53Resolver-SG
-
 Outputs:
   ALBSecurityGroup:
     Description: ALB security group
@@ -146,10 +112,6 @@ Outputs:
   ECSSecurityGroup:
     Description: ECS security group
     Value: !GetAtt ECSSecurityGroup.GroupId
-
-  MQSecurityGroup:
-    Description: MQ security group
-    Value: !GetAtt MQSecurityGroup.GroupId
 
   DBSecurityGroup:
     Description: RDS security group
@@ -162,7 +124,3 @@ Outputs:
   VPCEnpointSecurityGroup:
     Description: VPC Endpoints security group
     Value: !GetAtt VPCEnpointSecurityGroup.GroupId
-
-  Route53SecurityGroup:
-    Description: Route53 Resolver security group
-    Value: !GetAtt Route53SecurityGroup.GroupId

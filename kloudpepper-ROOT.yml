@@ -99,16 +99,6 @@ Parameters:
     Type: String
     Default: ""
 
-  MQUser:
-    NoEcho: false
-    Description: "Insert MQ username"
-    Type: String
-
-  MQPassword:
-    NoEcho: true
-    Description: "Insert the password of the MQ user. Must be more than 12 characters"
-    Type: String
-
   CreateNewAuroraDB:
     Description: "Do you want to create a new database?"
     Type: String
@@ -118,7 +108,7 @@ Parameters:
       - FALSE
 
   DBSnapshotARN:
-    Description: "Optional. DB Snapshot ID to restore database. Leave this blank if you are not restoring from a snapshot"
+    Description: "Optional. DB Snapshot ID to restore database. Leave blank if you are not restoring from a snapshot"
     Type: String
     Default: ""
 
@@ -160,10 +150,6 @@ Parameters:
 
 
 Mappings: 
-  ActiveMQ:
-    InstanceTypes:
-      prod: "mq.t3.micro"     # 2 vCPUs + 1 GB
-      nonprod: "mq.t2.micro"  # 1 vCPUs + 1 GB
   Aurora:
     InstanceTypes:
       prod: "db.t2.medium"    # 2 vCPUs + 4 GB
@@ -179,7 +165,6 @@ Metadata:
         Parameters:
           - EnvironmentType
           - EnvironmentName
-          - PrivateDomainName
       - 
         Label:
           default: "NETWORK PARAMETERS"
@@ -193,7 +178,7 @@ Metadata:
           - DBPrivateSubnet2CIDR
           - CreateTransitGateway
           - OtherTransitGatewayID
-      - 
+      -
         Label: 
           default: "ROUTE53 PARAMETERS"
         Parameters:
@@ -205,12 +190,6 @@ Metadata:
         Parameters:
           - CreateALBCertificate
           - OtherARNCertificate
-      -
-        Label: 
-          default: "MQ PARAMETERS"
-        Parameters:
-          - MQUser
-          - MQPassword
       -
         Label: 
           default: "AURORA DB PARAMETERS"
@@ -296,14 +275,6 @@ Resources:
         VPCEnpointSecurityGroup: !GetAtt SGStack.Outputs.VPCEnpointSecurityGroup
         PrivateRouteTable: !GetAtt VPCStack.Outputs.PrivateRouteTable
 
-  S3Stack:
-    Type: AWS::CloudFormation::Stack
-    Properties:
-      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-S3.yml
-      TimeoutInMinutes: 5
-      Parameters:
-        EnvironmentName: !Ref EnvironmentName
-
   EFSStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
@@ -339,25 +310,6 @@ Resources:
         ALBSecurityGroup: !GetAtt SGStack.Outputs.ALBSecurityGroup
         CreateALBCertificate: !Ref CreateALBCertificate
         OtherARNCertificate: !Ref OtherARNCertificate
-
-  MQStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn:
-      - VPCStack
-      - SGStack
-      - VPCEndpointStack
-    Properties:
-      TemplateURL: !Sub https://kloudpepper-${EnvironmentName}-cf.s3.${AWS::URLSuffix}/kloudpepper-MQ-Apache.yml
-      TimeoutInMinutes: 30
-      Parameters:
-        EnvironmentType: !Ref EnvironmentType
-        EnvironmentName: !Ref EnvironmentName
-        PrivateSubnet1: !GetAtt VPCStack.Outputs.PrivateSubnet1
-        PrivateSubnet2: !GetAtt VPCStack.Outputs.PrivateSubnet2
-        MQSecurityGroup: !GetAtt SGStack.Outputs.MQSecurityGroup
-        MQType: !FindInMap [ActiveMQ, InstanceTypes, !Ref EnvironmentType]
-        MQUser: !Ref MQUser
-        MQPassword: !Ref MQPassword
 
   RDSStack:
     Type: AWS::CloudFormation::Stack
@@ -422,9 +374,6 @@ Resources:
         DesiredCount: !Ref DesiredCount
         ImageUrlApp1: !Ref ImageUrlApp1
         ImageUrlApp2: !Ref ImageUrlApp2
-        MQUser: !Ref MQUser
-        MQPassword: !Ref MQPassword
-        MQEnpointAddr: !GetAtt MQStack.Outputs.MQEnpointAddr
         DBUser: !Ref DBUser
         DBPassword: !Ref DBPassword
         RDSEnpointPort: !GetAtt RDSStack.Outputs.RDSEnpointPort

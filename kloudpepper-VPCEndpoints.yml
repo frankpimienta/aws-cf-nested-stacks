@@ -70,13 +70,3 @@ Resources:
         - !Ref PrivateSubnet2
       VpcEndpointType: 'Interface'
       VpcId: !Ref VpcID
-
-  S3Endpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      PrivateDnsEnabled: false
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
-      RouteTableIds: 
-        - !Ref PrivateRouteTable
-      VpcEndpointType: 'Gateway'
-      VpcId: !Ref VpcID
